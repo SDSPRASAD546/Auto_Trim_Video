@@ -5,3 +5,4 @@ numpy~=2.2.6
 moviepy~=2.0.0.dev2
 locust~=2.39.1
 proglog~=0.1.12
+gunicorn
