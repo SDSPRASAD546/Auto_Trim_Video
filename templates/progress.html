@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Processing...</title>
+  <style>
+    .progress-container {
+      width: 80%;
+      margin: 50px auto;
+      background: #ddd;
+      border-radius: 25px;
+    }
+    .progress-bar {
+      width: 0%;
+      height: 30px;
+      background: #4cafef;
+      border-radius: 25px;
+      text-align: center;
+      color: white;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Processing your video...</h1>
+  <div class="progress-container">
+    <div class="progress-bar" id="bar">0%</div>
+  </div>
+
+  <script>
+    const filename = "{{ filename }}";
+    function checkProgress() {
+      fetch(`/progress/${filename}`)
+        .then(r => r.json())
+        .then(data => {
+          const bar = document.getElementById("bar");
+          bar.style.width = data.progress + "%";
+          bar.innerText = data.progress + "%";
+          if (data.progress < 100) {
+            setTimeout(checkProgress, 1000);
+          } else {
+            window.location.href = "/download/" + filename;
+          }
+        });
+    }
+    checkProgress();
+  </script>
+</body>
+</html>

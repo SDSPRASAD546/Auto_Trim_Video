@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Trimmer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav>
+    <ul>
+      <li><a href="#">Policy</a></li>
+      <li class="logo">MyLogo</li>
+      <li><a href="#">About</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+    <h2>Trim Your Video Easily</h2>
+
+    <div id="drop-area">
+      <p>Drag & Drop your file here or <span id="file-click">click to upload</span></p>
+      <input type="file" id="file-input" hidden>
+    </div>
+
+    <label for="margin">Margin (seconds):</label>
+    <input type="number" id="margin" value="2" step="0.1" min="0">
+
+    <button id="upload-btn">Upload & Trim</button>
+
+    <div id="progress-container" style="display:none;">
+      <progress id="progress-bar" value="0" max="100"></progress>
+      <span id="progress-text">0%</span>
+    </div>
+
+    <div id="result" style="display:none;"></div>
+    <div id="video-preview" style="display:none; margin-top:20px;">
+      <h3>Preview Trimmed Video</h3>
+      <video id="preview-player" controls width="600"></video>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 Video Trimmer</p>
+  </footer>
+
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const dropArea = document.getElementById("drop-area");
+    const uploadBtn = document.getElementById("upload-btn");
+    const progressContainer = document.getElementById("progress-container");
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-text");
+    const resultDiv = document.getElementById("result");
+    const videoPreview = document.getElementById("video-preview");
+    const previewPlayer = document.getElementById("preview-player");
+    let selectedFile = null;
+
+    dropArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropArea.classList.add("highlight");
+    });
+    dropArea.addEventListener("click", () => fileInput.click());
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("highlight");
+    });
+    dropArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropArea.classList.remove("highlight");
+      selectedFile = e.dataTransfer.files[0];
+      dropArea.innerHTML = `<p>File Selected: ${selectedFile.name}</p>`;
+    });
+    document.getElementById("file-click").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      selectedFile = e.target.files[0];
+      dropArea.innerHTML = `<p>File Selected: ${selectedFile.name}</p>`;
+    });
+
+    function poll(jobId) {
+      progressContainer.style.display = "block";
+      const timer = setInterval(async () => {
+        const r = await fetch(`/progress/${jobId}`);
+        const data = await r.json();
+        if (data.status === "queued" || data.status === "running") {
+          progressBar.value = data.progress || 0;
+          progressText.innerText = `${data.progress || 0}%`;
+        } else if (data.status === "done") {
+          clearInterval(timer);
+          progressBar.value = 100;
+          progressText.innerText = "100%";
+          resultDiv.style.display = "block";
+          resultDiv.innerHTML = `
+            <a href="${data.download_url}" download>
+              <button>Download Trimmed Video</button>
+            </a>
+            <button onclick="location.reload()">Upload Another</button>
+          `;
+          videoPreview.style.display = "block";
+          previewPlayer.src = data.video_url;
+          uploadBtn.disabled = false;
+        } else if (data.status === "error") {
+          clearInterval(timer);
+          alert("Error: " + (data.error || "Unknown error"));
+          uploadBtn.disabled = false;
+        }
+      }, 500);
+    }
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!selectedFile) {
+        alert("Please select a video file first!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("margin", document.getElementById("margin").value);
+
+      uploadBtn.disabled = true;
+      resultDiv.style.display = "none";
+      videoPreview.style.display = "none";
+
+      try {
+        const r = await fetch("/upload", {
+          method: "POST",
+          body: formData
+        });
+        const data = await r.json();
+
+        if (data.job_id) {
+          poll(data.job_id);
+        } else {
+          alert("Upload failed.");
+          uploadBtn.disabled = false;
+        }
+      } catch (err) {
+        alert("Error uploading: " + err);
+        uploadBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
